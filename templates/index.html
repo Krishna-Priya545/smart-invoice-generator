@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inovate Solution Technology · Invoice Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <img src="{{ url_for('static', filename='brand-logo.png') }}" alt="Inovate Solution Technology">
+        <div>
+            <h2>Invoice Generator</h2>
+            <p>Inovate Solution Technology</p>
+        </div>
+    </div>
+    <span class="topbar-label">INVOICE GENERATOR</span>
+</header>
+
+<main class="container">
+
+    <section class="page-heading">
+        <p class="eyebrow">INOVATE SOLUTION TECHNOLOGY</p>
+        <h1>Create a professional invoice</h1>
+        <p class="subtitle">Create, secure, email and manage branded invoices in one place.</p>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('generate_invoice') }}"
+          method="POST"
+          enctype="multipart/form-data"
+          id="invoiceForm">
+
+        <!-- 01 CUSTOMER INFORMATION -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Customer Information</h2>
+                    <p>Enter customer contact and billing details.</p>
+                </div>
+            </div>
+
+            <div class="seal-top-upload">
+                <div class="form-group">
+                    <label>Company Seal (PNG/JPG)</label>
+                    <input type="file" name="seal" id="seal" accept=".png,.jpg,.jpeg">
+                    <small>The company seal will appear in the invoice header.</small>
+
+                    {% if saved_seals %}
+                        <label class="check-option">
+                            <input type="checkbox" name="reuse_seal" value="yes">
+                            Reuse previously uploaded seal
+                        </label>
+
+                        <label>Or choose a saved seal</label>
+                        <select name="selected_seal">
+                            <option value="">Use newly uploaded seal</option>
+                            {% for asset in saved_seals %}
+                                <option value="{{ asset }}">{{ asset }}</option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
+                </div>
+                <div id="sealPreview" class="seal-preview"></div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Customer Name *</label>
+                    <input type="text" name="customer_name" required placeholder="Enter customer name">
+                </div>
+
+                <div class="form-group">
+                    <label>Customer Unique ID *</label>
+                    <input type="text" name="customer_id" required placeholder="Enter unique ID">
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Number *</label>
+                    <input type="tel" name="contact" required placeholder="e.g. +91 98765 43210">
+                    <small>This phone number will be the PDF password (digits only).</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" name="customer_email" required placeholder="Enter email address">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Customer Address *</label>
+                    <textarea name="address" rows="2" required placeholder="Enter complete billing address"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Billing Date *</label>
+                    <input type="date" name="billing_date" required>
+                </div>
+            </div>
+        </section>
+
+        <!-- 02 INVOICE DETAILS -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>Invoice Details</h2>
+                    <p>Specify purpose, GST type and category.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Purpose of Invoice *</label>
+                    <textarea name="purpose" rows="3" required
+                              placeholder="Enter purpose of invoice"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>GST Tag *</label>
+                    <select name="gst_tag" required>
+                        <option value="">Select GST Type</option>
+                        {% for option in gst_options %}
+                            <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select name="category" required>
+                        <option value="">Select Category</option>
+                        {% for option in category_options %}
+                            <option value="{{ option }}">{{ option }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        
+        <!-- 04 OPTIONAL BENEFITS -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">04</span>
+                <div>
+                    <h2>Optional Benefits</h2>
+                    <p>Add up to two benefits.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Benefit 1</label>
+                    <input type="text" name="benefit1" placeholder="Enter first benefit">
+                </div>
+
+                <div class="form-group">
+                    <label>Benefit 2</label>
+                    <input type="text" name="benefit2" placeholder="Enter second benefit">
+                </div>
+
+                <div class="form-group">
+                    <label>Subscription Validity Date</label>
+                    <input type="date" name="subscription_validity">
+                </div>
+
+                <div class="form-group">
+                    <label>Subscription Next Due Date</label>
+                    <input type="date" name="subscription_next_due">
+                </div>
+            </div>
+        </section>
+
+        <!-- 05 PLANNING SUBSCRIPTION -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">05</span>
+                <div>
+                    <h2>Planning Subscription</h2>
+                    <p>Add up to two subscriptions.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Planning Subscription 1</label>
+                    <input type="text" name="subscription1" placeholder="Enter first subscription">
+                </div>
+
+                <div class="form-group">
+                    <label>Planning Subscription 2</label>
+                    <input type="text" name="subscription2" placeholder="Enter second subscription">
+                </div>
+            </div>
+        </section>
+
+        <!-- 06 PAYMENT INFORMATION -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">06</span>
+                <div>
+                    <h2>Payment Information</h2>
+                    <p>Balance is calculated automatically.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Total Amount (₹) *</label>
+                    <input type="number" id="total_amount" name="total_amount"
+                           min="0" step="0.01" required placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Paid Amount (₹) *</label>
+                    <input type="number" id="paid_amount" name="paid_amount"
+                           min="0" step="0.01" value="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Balance Amount (₹)</label>
+                    <input type="text" id="balance_amount_display"
+                           value="0.00" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Balance Due Date <span class="required-if-balance">*</span></label>
+                    <input type="date" name="balance_due_date" id="balance_due_date">
+                </div>
+            </div>
+
+            <div class="balance-card">
+                <span>Outstanding Balance</span>
+                <strong id="balance_summary">₹ 0.00</strong>
+            </div>
+        </section>
+
+        <!-- 07 SIGNATURES AND REMARKS -->
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">07</span>
+                <div>
+                    <h2>Signatures and Remarks</h2>
+                    <p>Upload up to four signatures and add remarks.</p>
+                </div>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>Upload Multiple Signatures</label>
+                    <input type="file" name="signatures" id="signatures"
+                           accept=".png,.jpg,.jpeg" multiple>
+                    <small>You can select up to four signature images at once.</small>
+
+                    <label class="check-option">
+                        <input type="checkbox" name="reuse_signatures" value="yes">
+                        Reuse the four most recently uploaded signatures
+                    </label>
+
+                    <div id="signaturePreview" class="signature-preview"></div>
+
+                    {% if saved_signatures %}
+                        <div class="saved-assets">
+                            <strong>Choose saved signatures</strong>
+                            {% for asset in saved_signatures %}
+                                <label class="asset-option">
+                                    <input type="checkbox" name="selected_signatures" value="{{ asset }}">
+                                    <img src="{{ url_for('signature_asset', filename=asset) }}"
+                                         alt="Saved signature">
+                                </label>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label>Signature Date</label>
+                    <input type="date" name="signature_date">
+                </div>
+
+                <div class="form-group">
+                    <label>Signature Time</label>
+                    <input type="time" name="signature_time">
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Remarks</label>
+                    <textarea name="remarks" rows="3"
+                              placeholder="Enter additional remarks (optional)"></textarea>
+                </div>
+            </div>
+        </section>
+        <!-- 03 COMBINED TEMPLATE AND DESIGN SECTION -->
+        <section class="form-section" id="templateDesignSettings">
+
+            <div class="section-heading">
+                <span class="section-number">03</span>
+                <div>
+                    <h2>Invoice Template & Design Customization</h2>
+                    <p>Choose a template and customize its appearance before bill preview.</p>
+                </div>
+            </div>
+
+            <div class="form-group full-width">
+                <label>Choose Invoice Template *</label>
+
+                <div class="template-grid" id="templateGrid">
+
+                    {% for template in ["Classic", "Modern", "Creative", "Premium", "Business Pro"] %}
+                        <label class="template-card">
+                            <input type="radio"
+                                   name="template_name"
+                                   value="{{ template }}"
+                                   {% if template == "Modern" %}checked{% endif %}>
+
+                            <span class="template-swatch template-{{ template|lower|replace(' ', '-') }}">
+                                <b>INVOICE</b>
+                                <i></i>
+                                <i></i>
+                                <i></i>
+                            </span>
+
+                            <strong>{{ template }}</strong>
+                        </label>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <div class="design-divider"></div>
+
+            <div class="design-heading">
+                <h3>Customize Your Invoice Design</h3>
+                <p>Personalize colors, typography and layout.</p>
+            </div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>Background Color</label>
+                    <input type="color" name="background_color"
+                           id="background_color" value="#f7fbff">
+                </div>
+
+                <div class="form-group">
+                    <label>Label / Heading Color</label>
+                    <input type="color" name="label_color"
+                           id="label_color" value="#173f70">
+                </div>
+
+                <div class="form-group">
+                    <label>Font Color</label>
+                    <input type="color" name="font_color"
+                           id="font_color" value="#24364b">
+                </div>
+
+                <div class="form-group">
+                    <label>Accent Color</label>
+                    <input type="color" name="accent_color"
+                           id="accent_color" value="#1685c5">
+                </div>
+
+                <div class="form-group">
+                    <label>Table Border Color</label>
+                    <input type="color" name="border_color"
+                           id="border_color" value="#d8e6f2">
+                </div>
+
+                <div class="form-group">
+                    <label>Font Family</label>
+                    <select name="font_family" id="font_family">
+                        <option>Helvetica</option>
+                        <option>Arial</option>
+                        <option>Times New Roman</option>
+                        <option>Courier New</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Font Size</label>
+                    <select name="font_size" id="font_size">
+                        <option value="8">Small (8 pt)</option>
+                        <option value="9" selected>Medium (9 pt)</option>
+                        <option value="10">Large (10 pt)</option>
+                        <option value="11">Extra Large (11 pt)</option>
+                        <option value="12">Extra Large (12 pt)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Invoice Layout</label>
+                    <select name="layout_style" id="layout_style">
+                        <option>Standard</option>
+                        <option>Wide</option>
+                        <option>Compact</option>
+                        <option>Centered</option>
+                    </select>
+                </div>
+
+                <div class="form-group full-width design-actions">
+                    <button type="button" class="btn btn-secondary" id="saveDesign">
+                        Save My Design
+                    </button>
+
+                    <select id="savedDesigns">
+                        <option value="">Load saved design...</option>
+                    </select>
+
+                    <button type="button" class="btn btn-secondary" id="loadDesign">
+                        Load Design
+                    </button>
+
+                    <button type="button" class="btn btn-secondary" id="resetDesign">
+                        Reset Design
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 08 BILL PREVIEW -->
+        <section class="form-section preview-section">
+            <div class="section-heading">
+                <span class="section-number">08</span>
+                <div>
+                    <h2>Bill Preview</h2>
+                    <p>Preview updates as you fill the invoice form.</p>
+                </div>
+            </div>
+
+            <div class="bill-preview" id="billPreview">
+                <div class="preview-brand">Inovate Solution Technology</div>
+                <h2>Invoice Preview</h2>
+
+                <div class="preview-row">
+                    <span>Customer</span>
+                    <strong id="previewCustomer">—</strong>
+                </div>
+
+                <div class="preview-row">
+                    <span>Purpose</span>
+                    <strong id="previewPurpose">—</strong>
+                </div>
+
+                <div class="preview-row">
+                    <span>Total</span>
+                    <strong id="previewTotal">₹ 0.00</strong>
+                </div>
+
+                <div class="preview-row">
+                    <span>Balance</span>
+                    <strong id="previewBalance">₹ 0.00</strong>
+                </div>
+
+                <div class="preview-template">
+                    Template: <span id="previewTemplate">Modern</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- EMAIL OPTION -->
+        <section class="form-section email-section">
+            <label class="check-option email-option">
+                <input type="checkbox" name="send_email" value="yes">
+                <span>
+                    <strong>Send invoice to customer by email</strong>
+                    <small>The encrypted PDF will be attached.</small>
+                </span>
+            </label>
+        </section>
+
+        <div class="form-actions">
+            <button type="reset" class="btn btn-secondary" id="resetButton">
+                Reset Form
+            </button>
+
+            <button type="submit" class="btn btn-primary">
+                Generate Invoice PDF →
+            </button>
+        </div>
+    </form>
+
+    <!-- INVOICE HISTORY -->
+    <section class="history-section" id="invoiceHistory">
+        <div class="history-heading">
+            <div>
+                <p class="eyebrow">RECORD MANAGEMENT</p>
+                <h2>Created Invoices</h2>
+                <p class="subtitle">Search and download previously created invoices.</p>
+            </div>
+            <span class="invoice-count">{{ invoices|length }} records</span>
+        </div>
+
+        <form action="{{ url_for('index') }}" method="GET" class="search-form">
+            <input type="search" name="search" value="{{ search_text }}"
+                   placeholder="Search by customer name...">
+            <button type="submit" class="btn btn-primary">Search</button>
+
+            {% if search_text %}
+                <a href="{{ url_for('index') }}" class="clear-search">Clear</a>
+            {% endif %}
+        </form>
+
+        <div class="table-wrapper">
+            <table class="invoice-table">
+                <thead>
+                    <tr>
+                        <th>Invoice Number</th>
+                        <th>Customer Name</th>
+                        <th>Phone Number</th>
+                        <th>Invoice Date</th>
+                        <th>Total Amount</th>
+                        <th>Balance</th>
+                        <th>Download</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for invoice in invoices %}
+                        <tr>
+                            <td>{{ invoice.invoice_number }}</td>
+                            <td>{{ invoice.customer_name }}</td>
+                            <td>{{ invoice.customer_phone }}</td>
+                            <td>{{ invoice.created_at }}</td>
+                            <td>₹ {{ "%.2f"|format(invoice.total_amount or 0) }}</td>
+                            <td>₹ {{ "%.2f"|format(invoice.balance_amount or 0) }}</td>
+                            <td>
+                                <a class="download-link"
+                                   href="{{ url_for('download_invoice', invoice_id=invoice.id) }}">
+                                    Download PDF
+                                </a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                {% if search_text %}
+                                    No invoices found for "{{ search_text }}".
+                                {% else %}
+                                    No invoices have been created yet.
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <footer>
+        Inovate Solution Technology · Custom Invoice Generator
+    </footer>
+
+</main>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
